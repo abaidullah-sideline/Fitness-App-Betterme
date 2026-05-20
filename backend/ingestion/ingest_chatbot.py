@@ -40,7 +40,8 @@ def _chatbot_kb_populated() -> bool:
     if not pathlib.Path(PERSIST_DIR).exists():
         return False
     try:
-        client = chromadb.PersistentClient(path=str(PROJECT_ROOT / CHROMA_PATH))
+        # PERSIST_DIR is the subdirectory used by Chroma.from_documents
+        client = chromadb.PersistentClient(path=PERSIST_DIR)
         col = client.get_collection(COLLECTION_NAME)
         return col.count() > 0
     except Exception:

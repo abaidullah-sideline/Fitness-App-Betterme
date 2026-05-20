@@ -42,8 +42,11 @@ def _check_env() -> None:
 
 def _collection_populated(collection_name: str) -> bool:
     """Return True if the named Chroma collection exists and has at least one document."""
+    import pathlib
+    # Each collection is persisted in its own subdirectory: chroma_db/<name>/
+    persist_dir = str(pathlib.Path(CHROMA_PATH) / collection_name)
     try:
-        client = chromadb.PersistentClient(path=CHROMA_PATH)
+        client = chromadb.PersistentClient(path=persist_dir)
         col = client.get_collection(collection_name)
         return col.count() > 0
     except Exception:

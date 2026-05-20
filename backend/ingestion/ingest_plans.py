@@ -39,11 +39,11 @@ def _embeddings() -> OpenAIEmbeddings:
 
 def _already_populated() -> bool:
     """Return True if plans_kb collection already has documents on disk."""
-    persist_path = pathlib.Path(PERSIST_DIR)
-    if not persist_path.exists():
+    if not pathlib.Path(PERSIST_DIR).exists():
         return False
     try:
-        client = chromadb.PersistentClient(path=str(PROJECT_ROOT / CHROMA_PATH))
+        # PERSIST_DIR is the subdirectory used by Chroma.from_documents
+        client = chromadb.PersistentClient(path=PERSIST_DIR)
         col = client.get_collection(COLLECTION_NAME)
         return col.count() > 0
     except Exception:
