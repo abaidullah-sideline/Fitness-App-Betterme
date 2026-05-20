@@ -45,4 +45,5 @@ class DailyStats(BaseModel):
     fat_g: float
     carbs_g: float
     protein_g: float
+    food_calories_kcal: int = 0
     nutritional_facts: str

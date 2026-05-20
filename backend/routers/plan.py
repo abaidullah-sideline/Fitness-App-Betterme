@@ -69,15 +69,24 @@ def _fetch_latest_plan(conn, user_id: str) -> dict | None:
 
 
 def _parse_nutrition(nutritional_facts: str) -> dict:
-    """Extract fat_g, carbs_g, protein_g floats from a nutritional_facts string."""
-    def _extract(label: str) -> float:
-        m = re.search(rf"{label}\s*:\s*(\d+(?:\.\d+)?)g", nutritional_facts, re.IGNORECASE)
+    """Extract macro grams and total food calories from a nutritional_facts string.
+
+    Handles formats like:
+      {Calories: 2800 kcal, Protein: 150g, Carbs: 320g, Fats: 85g}
+    """
+    def _g(label: str) -> float:
+        m = re.search(rf"{label}\s*:\s*(\d+(?:\.\d+)?)\s*g", nutritional_facts, re.IGNORECASE)
         return float(m.group(1)) if m else 0.0
 
+    def _kcal(label: str) -> int:
+        m = re.search(rf"{label}\s*:\s*(\d+)\s*kcal", nutritional_facts, re.IGNORECASE)
+        return int(m.group(1)) if m else 0
+
     return {
-        "fat_g": _extract("fat"),
-        "carbs_g": _extract("carbs"),
-        "protein_g": _extract("protein"),
+        "fat_g": _g(r"Fats?"),
+        "carbs_g": _g(r"Carbs?"),
+        "protein_g": _g("Protein"),
+        "food_calories_kcal": _kcal("Calories"),
     }
 
 

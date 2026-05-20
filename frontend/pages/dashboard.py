@@ -24,7 +24,8 @@ from frontend.api_client import (
 _COL_RATIOS = [0.45, 0.45, 1.4, 3.5, 2, 2, 2]
 _DAYS_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-_MACRO_COLORS = ["#FF6B6B", "#FFD93D", "#6BCB77"]   # fat / carbs / protein
+_BURNED_COLOR = "#FF6B6B"
+_INTAKE_COLOR = "#6BCB77"
 
 
 # ---------------------------------------------------------------------------
@@ -105,27 +106,70 @@ def _init_checkbox_state(days: list[dict]) -> None:
             st.session_state[key] = day_logs.get(day["day"], {}).get("is_complete", False)
 
 
-def _donut_chart(fat_g: float, carbs_g: float, protein_g: float):
-    values = [fat_g, carbs_g, protein_g]
-    labels = [f"Fat ({fat_g}g)", f"Carbs ({carbs_g}g)", f"Protein ({protein_g}g)"]
-    fig, ax = plt.subplots(figsize=(3, 3))
+_TEXT_COLOR = "#E5E7EB"      # light grey — readable on both dark and light themes
+_SPINE_COLOR = "#4B5563"     # muted border
+
+
+def _calories_timeline_chart(checked_days: list, week_dates: dict[str, str]):
+    """Cumulative line chart: total workout calories burned vs food intake as days are completed."""
+    labels, cum_burned, cum_food = [], [], []
+    total_burned = total_food = 0
+
+    for day_name, info in checked_days:
+        stats = info["stats"]
+        date_str = week_dates.get(day_name, "")
+        labels.append(f"{day_name[:3]}\n{date_str}")
+
+        total_burned += stats.get("est_calories_burned", 0)
+
+        # Prefer the dataset's direct Calories field; fall back to macro computation
+        food_kcal = stats.get("food_calories_kcal", 0)
+        if not food_kcal:
+            fat = stats.get("fat_g", 0)
+            carbs = stats.get("carbs_g", 0)
+            protein = stats.get("protein_g", 0)
+            food_kcal = round(fat * 9 + carbs * 4 + protein * 4)
+
+        total_food += food_kcal
+        cum_burned.append(total_burned)
+        cum_food.append(total_food)
+
+    n = len(labels)
+    x = list(range(n))
+
+    fig, ax = plt.subplots(figsize=(max(5, n * 1.8), 4))
     fig.patch.set_alpha(0)
     ax.set_facecolor("none")
-    wedges, _ = ax.pie(
-        values,
-        colors=_MACRO_COLORS,
-        startangle=90,
-        wedgeprops={"width": 0.5, "edgecolor": "white"},
-    )
-    ax.legend(
-        wedges,
-        labels,
-        loc="center left",
-        bbox_to_anchor=(1.05, 0.5),
-        fontsize=8,
-        frameon=False,
-    )
-    ax.set_title("Macros", fontsize=9, pad=6)
+
+    ax.plot(x, cum_burned, marker="o", linewidth=2, markersize=6,
+            label="Burned (workout)", color=_BURNED_COLOR)
+    ax.plot(x, cum_food, marker="s", linewidth=2, markersize=6,
+            label="Intake (food)", color=_INTAKE_COLOR)
+
+    for xi, (yb, yf) in enumerate(zip(cum_burned, cum_food)):
+        ax.text(xi, yb + max(cum_food[-1], cum_burned[-1]) * 0.02, str(int(yb)),
+                ha="center", va="bottom", fontsize=7, color=_BURNED_COLOR)
+        ax.text(xi, yf - max(cum_food[-1], cum_burned[-1]) * 0.04, str(int(yf)),
+                ha="center", va="top", fontsize=7, color=_INTAKE_COLOR)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=9, color=_TEXT_COLOR)
+    ax.set_ylabel("Cumulative kcal", fontsize=9, color=_TEXT_COLOR)
+    ax.set_title("Cumulative Calories — Burned vs Food Intake", fontsize=10,
+                 pad=10, color=_TEXT_COLOR)
+
+    legend = ax.legend(fontsize=8, frameon=False)
+    for text in legend.get_texts():
+        text.set_color(_TEXT_COLOR)
+
+    for spine in ax.spines.values():
+        spine.set_edgecolor(_SPINE_COLOR)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    ax.tick_params(axis="both", labelsize=8, colors=_TEXT_COLOR)
+    ax.yaxis.label.set_color(_TEXT_COLOR)
+
     plt.tight_layout()
     return fig
 
@@ -282,29 +326,31 @@ def _render_stats(plan: dict) -> None:
     order = {d: i for i, d in enumerate(_DAYS_ORDER)}
     checked_days.sort(key=lambda x: order.get(x[0], 99))
 
+    week_dates = _week_dates()
+
+    # Timeline chart spanning all completed days
+    fig = _calories_timeline_chart(checked_days, week_dates)
+    st.pyplot(fig, use_container_width=True)
+    plt.close(fig)
+    st.write("")
+
+    # Per-day metric cards
     for day_name, info in checked_days:
         stats: dict = info["stats"]
-        st.markdown(f'<div class="stat-section-title">{day_name}</div>', unsafe_allow_html=True)
-
-        # Metric cards
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("🔥 Calories Burned", f"{stats.get('est_calories_burned', 0)} kcal")
-        m2.metric("🥩 Protein", f"{stats.get('protein_g', 0)} g")
-        m3.metric("🍞 Carbohydrates", f"{stats.get('carbs_g', 0)} g")
-        m4.metric("🫒 Fat", f"{stats.get('fat_g', 0)} g")
-
-        # Donut chart
+        date_str = week_dates.get(day_name, "")
+        st.markdown(
+            f'<div class="stat-section-title">{day_name}'
+            f' <small style="color:#9CA3AF;font-weight:400">{date_str}</small></div>',
+            unsafe_allow_html=True,
+        )
         fat = stats.get("fat_g", 0)
-        carbs = stats.get("carbs_g", 0)
-        protein = stats.get("protein_g", 0)
-
-        if fat + carbs + protein > 0:
-            _, chart_col, _ = st.columns([1, 2, 1])
-            with chart_col:
-                fig = _donut_chart(fat, carbs, protein)
-                st.pyplot(fig, use_container_width=False)
-                plt.close(fig)
-
+        show_fat = fat > 0
+        cols = st.columns(4 if show_fat else 3)
+        cols[0].metric("🔥 Calories Burned", f"{stats.get('est_calories_burned', 0)} kcal")
+        cols[1].metric("🥩 Protein", f"{stats.get('protein_g', 0)} g")
+        cols[2].metric("🍞 Carbohydrates", f"{stats.get('carbs_g', 0)} g")
+        if show_fat:
+            cols[3].metric("🫒 Fat", f"{fat} g")
         st.write("")
 
 
