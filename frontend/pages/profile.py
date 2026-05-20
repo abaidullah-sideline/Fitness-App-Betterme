@@ -15,11 +15,11 @@ from frontend.api_client import create_profile, get_profile, update_profile
 
 _SENTINEL = "-- Select --"
 
-_AGE_GROUPS = [_SENTINEL, "18-30", "31-45", "46-60", "61+"]
+_AGE_GROUPS = [_SENTINEL, "18-25", "26-35", "36-50", "50+"]
 _BMI_CATS = [_SENTINEL, "Underweight", "Normal", "Overweight", "Obese"]
-_FITNESS_GOALS = [_SENTINEL, "Weight Loss", "Muscle Gain", "Improve Endurance", "Maintain Fitness"]
-_ACTIVITY_LEVELS = [_SENTINEL, "Low", "Moderate", "High"]
-_DIETARY_PREFS = [_SENTINEL, "Omnivore", "Vegetarian", "Vegan", "No Preference"]
+_FITNESS_GOALS = [_SENTINEL, "Weight Loss", "Muscle Gain", "Maintenance", "Endurance/Stamina"]
+_ACTIVITY_LEVELS = [_SENTINEL, "Beginner", "Intermediate", "Advanced"]
+_DIETARY_PREFS = [_SENTINEL, "Halal", "Vegan", "Keto", "Any"]
 _GENDERS = ["Male", "Female", "Non-binary", "Prefer not to say"]
 
 _REQUIRED_SELECTS = {

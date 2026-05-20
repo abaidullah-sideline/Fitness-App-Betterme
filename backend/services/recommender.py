@@ -106,7 +106,9 @@ def get_recommendations(profile: dict) -> list[dict]:
     df = pd.read_csv(dataset_path)
     df = df[df["Plan_ID"].isin(plan_ids)].copy()
 
-    # Hard filters — skip if profile value is "Any" or "All"
+    # Hard filters — skip if the user chose "Any" / "All".
+    # When filtering, also keep dataset rows whose column value is "Any"
+    # (they are valid for every user profile).
     _SKIP = {"any", "all"}
     filter_map = {
         "Gender": profile.get("gender", ""),
@@ -115,7 +117,10 @@ def get_recommendations(profile: dict) -> list[dict]:
     }
     for col, value in filter_map.items():
         if value.lower() not in _SKIP and value:
-            df = df[df[col].str.lower() == value.lower()]
+            df = df[
+                (df[col].str.lower() == value.lower()) |
+                (df[col].str.lower() == "any")
+            ]
 
     # Preserve similarity ranking order
     id_rank = {pid: i for i, pid in enumerate(plan_ids)}
