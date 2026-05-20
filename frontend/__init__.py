@@ -1,0 +1,1 @@
+# FitAI frontend package

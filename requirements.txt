@@ -1,0 +1,26 @@
+# FitAI dependencies
+
+# Frontend
+streamlit
+streamlit-chat
+
+# Backend
+fastapi
+uvicorn[standard]
+pydantic>=2.0
+
+# AI & Orchestration
+langchain
+langchain-openai
+langchain-chroma
+langgraph
+openai
+
+# Data & Storage
+pandas
+chromadb
+python-dotenv
+
+# Document Processing (RAG ingestion)
+pypdf
+yt-dlp
