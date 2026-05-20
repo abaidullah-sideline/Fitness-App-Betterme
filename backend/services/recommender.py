@@ -167,13 +167,31 @@ def parse_plan_to_days(plan: dict) -> list[dict]:
 # Private helpers
 # ---------------------------------------------------------------------------
 
+_DAY_BOUNDARY_RE = re.compile(
+    r"[.]\s+(?=Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)\s*:?",
+    re.IGNORECASE,
+)
+
+
 def _parse_exercise_schedule(schedule: str) -> list[str]:
-    """Split a schedule string into exactly 7 workout strings."""
-    parts = [p.strip() for p in schedule.split(";") if p.strip()]
+    """Split a schedule string into exactly 7 workout strings.
+
+    Supports two formats:
+    - New: 'Monday: workout. Tuesday: workout. ...'  (period separator)
+    - Old: 'Mon: workout; Tue: workout; ...'          (semicolon separator)
+    """
+    schedule = schedule.strip()
+
+    # Try period-based split first (new dataset format)
+    parts = [p.strip() for p in _DAY_BOUNDARY_RE.split(schedule) if p.strip()]
+
+    # Fall back to semicolon split (old format)
+    if len(parts) < 2:
+        parts = [p.strip() for p in schedule.split(";") if p.strip()]
 
     workouts: list[str] = []
     for part in parts:
-        # Strip leading day prefix ("Mon: ", "Monday - ", etc.)
+        part = part.strip().rstrip(".")
         workout = _DAY_PREFIX_RE.sub("", part).strip()
         workouts.append(workout or "Rest")
 
@@ -203,29 +221,40 @@ def _parse_meal_plan(meal_plan: str) -> list[tuple[str, str, str]]:
 
 
 def _extract_bld(text: str) -> tuple[str, str, str]:
-    """Extract breakfast, lunch, dinner from a text fragment."""
-    # Remove leading day prefix if present
+    """Extract breakfast, lunch, dinner from a text fragment.
+
+    Supports two formats:
+    - New: 'Breakfast: food. Lunch: food. Dinner: food.'  (period separator)
+    - Old: 'Breakfast: food, Lunch: food, Dinner: food'   (comma/semicolon)
+    """
     text = _DAY_PREFIX_RE.sub("", text).strip()
 
-    # Split on commas or semicolons to get meal tokens
-    tokens = [t.strip() for t in re.split(r"[;,]", text) if t.strip()]
+    # Split at '. Label:' boundaries — lookahead keeps the label in the next token
+    _LABEL_BOUNDARY = re.compile(
+        r"[.]\s+(?=(?:Breakfast|Lunch|Dinner|Snacks?)\s*:)",
+        re.IGNORECASE,
+    )
+    tokens = [t.strip().rstrip(".") for t in _LABEL_BOUNDARY.split(text) if t.strip()]
+
+    # Fall back to comma/semicolon split if no period boundaries found
+    if len(tokens) <= 1:
+        tokens = [t.strip() for t in re.split(r"[;,]", text) if t.strip()]
 
     breakfast = lunch = dinner = ""
     for token in tokens:
         lower = token.lower()
         if re.match(r"^breakfast\s*:", lower):
-            breakfast = re.split(r":", token, 1)[1].strip()
+            breakfast = re.split(r":\s*", token, 1)[-1].strip()
         elif re.match(r"^lunch\s*:", lower):
-            lunch = re.split(r":", token, 1)[1].strip()
+            lunch = re.split(r":\s*", token, 1)[-1].strip()
         elif re.match(r"^dinner\s*:", lower):
-            dinner = re.split(r":", token, 1)[1].strip()
+            dinner = re.split(r":\s*", token, 1)[-1].strip()
 
-    # If no labelled meals found, distribute tokens positionally
-    if not (breakfast or lunch or dinner):
-        if tokens:
-            breakfast = tokens[0] if len(tokens) > 0 else ""
-            lunch = tokens[1] if len(tokens) > 1 else ""
-            dinner = tokens[2] if len(tokens) > 2 else ""
+    # Positional fallback when no labels matched at all
+    if not (breakfast or lunch or dinner) and tokens:
+        breakfast = tokens[0] if len(tokens) > 0 else ""
+        lunch     = tokens[1] if len(tokens) > 1 else ""
+        dinner    = tokens[2] if len(tokens) > 2 else ""
 
     return (breakfast, lunch, dinner)
 

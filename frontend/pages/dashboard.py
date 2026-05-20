@@ -8,7 +8,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import math
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import matplotlib.pyplot as plt
 import streamlit as st
@@ -73,6 +73,16 @@ def _today_name() -> str:
     return datetime.now().strftime("%A")
 
 
+def _week_dates() -> dict[str, str]:
+    """Return {day_name: 'May 20'} for the current Mon–Sun week."""
+    today = datetime.now().date()
+    monday = today - timedelta(days=today.weekday())
+    return {
+        day: (monday + timedelta(days=i)).strftime("%b %d")
+        for i, day in enumerate(_DAYS_ORDER)
+    }
+
+
 def _checkbox_callback(day_name: str, plan_id: str, user_id: str) -> None:
     """Called by st.checkbox on_change; persists toggle and stores DailyStats."""
     is_complete = st.session_state[f"check_{day_name}"]
@@ -131,9 +141,10 @@ def _render_header() -> None:
         col.markdown(f'<div class="plan-header">{label}</div>', unsafe_allow_html=True)
 
 
-def _render_row(day: dict, plan_id: str, user_id: str, today: str) -> None:
+def _render_row(day: dict, plan_id: str, user_id: str, today: str, week_dates: dict[str, str]) -> None:
     day_name: str = day["day"]
     is_today = day_name == today
+    date_str = week_dates.get(day_name, "")
 
     cols = st.columns(_COL_RATIOS)
 
@@ -150,15 +161,21 @@ def _render_row(day: dict, plan_id: str, user_id: str, today: str) -> None:
     # Sr.
     cols[1].write(day["sr"])
 
-    # Day (with TODAY badge)
+    # Day + date (with TODAY badge when applicable)
     with cols[2]:
         if is_today:
             st.markdown(
-                f"**{day_name}** <span class='today-badge'>TODAY</span>",
+                f"**{day_name}**<br>"
+                f"<small style='color:#3B82F6'>{date_str}</small> "
+                f"<span class='today-badge'>TODAY</span>",
                 unsafe_allow_html=True,
             )
         else:
-            st.write(day_name)
+            st.markdown(
+                f"**{day_name}**<br>"
+                f"<small style='color:#9CA3AF'>{date_str}</small>",
+                unsafe_allow_html=True,
+            )
 
     # Workout
     workout = day.get("workout_plan", "")
@@ -182,10 +199,11 @@ def _render_table(plan: dict, user_id: str) -> None:
     days: list[dict] = plan.get("days", [])
     plan_id: str = plan.get("plan_id", "")
     today = _today_name()
+    dates = _week_dates()
 
     _render_header()
     for day in days:
-        _render_row(day, plan_id, user_id, today)
+        _render_row(day, plan_id, user_id, today, dates)
 
 
 # ---------------------------------------------------------------------------
