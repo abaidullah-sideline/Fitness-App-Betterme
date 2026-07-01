@@ -314,7 +314,8 @@ def _load_user_profile(user_id: str) -> dict:
     try:
         conn = get_connection()
         row = conn.execute(
-            f"SELECT {', '.join(_COLS)} FROM users WHERE user_id = ?", (user_id,)
+            text(f"SELECT {', '.join(_COLS)} FROM users WHERE user_id = :user_id"),
+            {"user_id": user_id}
         ).fetchone()
         conn.close()
         return dict(zip(_COLS, row)) if row else {}
