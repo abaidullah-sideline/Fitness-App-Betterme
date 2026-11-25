@@ -1,1 +1,0 @@
-aws_key = "AKIAZ7Q2XRTV4LWMQNPD"
